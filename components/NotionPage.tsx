@@ -4,7 +4,12 @@ import Image from 'next/legacy/image'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { type PageBlock } from 'notion-types'
-import { formatDate, getBlockTitle, getPageProperty } from 'notion-utils'
+import {
+  formatDate,
+  getBlockTitle,
+  getBlockValue,
+  getPageProperty
+} from 'notion-utils'
 import * as React from 'react'
 import BodyClassName from 'react-body-classname'
 import {
@@ -224,7 +229,7 @@ export function NotionPage({
   }, [site, recordMap, lite])
 
   const keys = Object.keys(recordMap?.block || {})
-  const block = recordMap?.block?.[keys[0]!]?.value
+  const block = getBlockValue(recordMap?.block?.[keys[0]!])
 
   // const isRootPage =
   //   parsePageId(block?.id) === parsePageId(site?.rootNotionPageId)
@@ -255,15 +260,7 @@ export function NotionPage({
     return <Page404 site={site} pageId={pageId} error={error} />
   }
 
-  const title = getBlockTitle(block, recordMap) || site.name
-
-  console.log('notion page', {
-    isDev: config.isDev,
-    title,
-    pageId,
-    rootNotionPageId: site.rootNotionPageId,
-    recordMap
-  })
+  const title = getBlockTitle(block, recordMap!) || site.name
 
   if (!config.isServer) {
     // add important objects to the window global for easy debugging
@@ -275,17 +272,17 @@ export function NotionPage({
 
   const canonicalPageUrl = config.isDev
     ? undefined
-    : getCanonicalPageUrl(site, recordMap)(pageId)
+    : getCanonicalPageUrl(site, recordMap!)(pageId)
 
   const socialImage = mapImageUrl(
-    getPageProperty<string>('Social Image', block, recordMap) ||
+    getPageProperty<string>('Social Image', block, recordMap!) ||
       (block as PageBlock).format?.page_cover ||
       config.defaultPageCover,
     block
   )
 
   const socialDescription =
-    getPageProperty<string>('Description', block, recordMap) ||
+    getPageProperty<string>('Description', block, recordMap!) ||
     config.description
 
   return (
@@ -310,11 +307,11 @@ export function NotionPage({
         )}
         darkMode={isDarkMode}
         components={components}
-        recordMap={recordMap}
+        recordMap={recordMap!}
         rootPageId={site.rootNotionPageId}
         rootDomain={site.domain}
         fullPage={!isLiteMode}
-        previewImages={!!recordMap.preview_images}
+        previewImages={!!recordMap!.preview_images}
         showCollectionViewDropdown={false}
         showTableOfContents={showTableOfContents}
         minTableOfContentsItems={minTableOfContentsItems}

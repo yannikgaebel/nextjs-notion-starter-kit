@@ -1,4 +1,8 @@
-import { getAllPagesInSpace, getPageProperty, uuidToId } from 'notion-utils'
+import {
+  getAllPagesInSpace,
+  getBlockValue,
+  getPageProperty
+} from 'notion-utils'
 import pMemoize from 'p-memoize'
 
 import type * as types from './types'
@@ -26,7 +30,6 @@ const getAllPages = pMemoize(getAllPagesImpl, {
 })
 
 const getPage = async (pageId: string, opts?: any) => {
-  console.log('\nnotion getPage', uuidToId(pageId))
   return notion.getPage(pageId, {
     kyOptions: {
       timeout: 30_000
@@ -60,7 +63,7 @@ async function getAllPagesImpl(
         throw new Error(`Error loading page "${pageId}"`)
       }
 
-      const block = recordMap.block[pageId]?.value
+      const block = getBlockValue(recordMap.block[pageId])
       if (
         !(getPageProperty<boolean | null>('Public', block!, recordMap) ?? true)
       ) {
