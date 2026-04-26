@@ -1,12 +1,21 @@
 import { type ExtendedRecordMap } from 'notion-types'
-import { parsePageId } from 'notion-utils'
+import { getBlockValue, getPageProperty, parsePageId } from 'notion-utils'
 
 import type { PageProps } from './types'
 import * as acl from './acl'
-import { environment, pageUrlAdditions, pageUrlOverrides, site } from './config'
+import {
+  environment,
+  includeNotionIdInUrls,
+  pageUrlAdditions,
+  pageUrlOverrides,
+  site
+} from './config'
 import { db } from './db'
+import { getCanonicalPageId } from './get-canonical-page-id'
 import { getSiteMap } from './get-site-map'
 import { getPage } from './notion'
+
+const uuid = !!includeNotionIdInUrls
 
 export async function resolveNotionPage(
   domain: string,
@@ -53,7 +62,9 @@ export async function resolveNotionPage(
       // handle mapping of user-friendly canonical page paths to Notion page IDs
       // e.g., /developer-x-entrepreneur versus /71201624b204481f862630ea25ce62fe
       const siteMap = await getSiteMap()
-      pageId = siteMap?.canonicalPageMap[rawPageId]
+      pageId =
+        siteMap?.canonicalPageMap[rawPageId] ??
+        (await resolvePageIdFromRootRecordMap(rawPageId))
 
       if (pageId) {
         // TODO: we're not re-using the page recordMap from siteMaps because it is
@@ -91,4 +102,32 @@ export async function resolveNotionPage(
 
   const props: PageProps = { site, recordMap, pageId }
   return { ...props, ...(await acl.pageAcl(props)) }
+}
+
+async function resolvePageIdFromRootRecordMap(rawPageId: string) {
+  const rootRecordMap = await getPage(site.rootNotionPageId)
+
+  for (const pageId of Object.keys(rootRecordMap.block)) {
+    const block = getBlockValue(rootRecordMap.block[pageId])
+
+    if (
+      !block ||
+      block.alive === false ||
+      (block.type !== 'page' && block.type !== 'collection_view_page')
+    ) {
+      continue
+    }
+
+    if (
+      !(getPageProperty<boolean | null>('Public', block, rootRecordMap) ?? true)
+    ) {
+      continue
+    }
+
+    const canonicalPageId = getCanonicalPageId(pageId, rootRecordMap, { uuid })
+
+    if (canonicalPageId === rawPageId) {
+      return pageId
+    }
+  }
 }
